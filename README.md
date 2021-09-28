@@ -1,5 +1,10 @@
 # Screen Share
 
+
+## Advantage
+
+It can be run from a host above win7. 😄
+
 ## Motivation
 
 I wanted to learn more about `COM` interop with Go and create a somewhat usable screen sharing tool
@@ -51,9 +56,4 @@ Performance _is not_ optimized to 100%, there are still thing that could be impr
 Overall the current implementation is about 2-5x faster than GDI `BitBlt` (depending on the resolution, 
 the higher the bigger the difference) and uses a lot less resources for cases where there arent any changes to the screen.
 
-## app.manifest
 
-To make use of `IDXGIOutput5::DuplicateOutput1`, an application has to provide support for `PerMonitorV2` DPI-Awareness (Windows 10 1703+)
-This is usually done by providing an my-executable.exe.manifest file either next to the executable, or as an embedded resource.
-
-In this application there are calls to `IsValidDpiAwarenessContext` and `SetThreadDpiAwarenessContext` which circumvent the requirement.
