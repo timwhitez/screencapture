@@ -3,9 +3,15 @@ package main
 import (
 	"bytes"
 	"context"
+	randd "crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"image"
+	"log"
+	"math/big"
+	"math/rand"
 	"net/http"
 	"runtime"
 
@@ -23,11 +29,32 @@ import (
 	forkscreenshot "github.com/timwhitez/screencapture/screenshot"
 )
 
+type application struct {
+	auth struct {
+		username string
+		password string
+	}
+}
+
 func main() {
+	app := new(application)
+	app.auth.username = "admin"
+	pass := RandomString(16)
+	app.auth.password = pass
+	fmt.Println("Password: " + pass + "\n")
+
+	if app.auth.username == "" {
+		log.Fatal("basic auth username must be provided")
+	}
+
+	if app.auth.password == "" {
+		log.Fatal("basic auth password must be provided")
+	}
+
 	n := screenshot.NumActiveDisplays()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	http.HandleFunc("/watch", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/watch", app.basicAuth(func(w http.ResponseWriter, r *http.Request) {
 		screen := r.URL.Query().Get("screen")
 		if screen == "" {
 			screen = "0"
@@ -51,7 +78,7 @@ func main() {
 		<body style="margin:0">
 	<img src="/mjpeg` + strconv.Itoa(screenNo) + `" style="max-width: 100vw; max-height: 100vh;object-fit: contain;display: block;margin: 0 auto;" />
 </body>`))
-	})
+	}))
 
 	framerate := 15
 	for i := 0; i < n; i++ {
@@ -61,14 +88,71 @@ func main() {
 		// go streamDisplay(ctx, i, framerate, stream)
 		go streamDisplayDXGI(ctx, i, framerate, stream)
 		// go captureScreenTranscode(ctx, i, framerate)
-		http.HandleFunc(fmt.Sprintf("/mjpeg%d", i), stream.ServeHTTP)
+		http.HandleFunc(fmt.Sprintf("/mjpeg%d", i), app.basicAuth(stream.ServeHTTP))
 	}
 	go func() {
-		http.ListenAndServe("127.0.0.1:8023", nil)
+		port := 10000
+
+		for {
+			seed := rand.New(rand.NewSource(time.Now().UnixNano()))
+			randNum := seed.Intn(40000)
+			port += randNum
+			fmt.Println("Listening 127.0.0.1:" + strconv.Itoa(port))
+			func() {
+				defer func() {
+					if ok := recover(); ok != nil {
+						fmt.Printf(" -> %s\n", "fail")
+						port = 20000
+					}
+				}()
+				err := http.ListenAndServe("127.0.0.1:"+strconv.Itoa(port), nil)
+				if err != nil {
+					panic("unavailable")
+				}
+			}()
+		}
 
 	}()
 	<-ctx.Done()
 	<-time.After(time.Second)
+}
+
+// RandomString - generates random string of given length
+func RandomString(len int) string {
+	bytes := make([]byte, len)
+	for i := 0; i < len; i++ {
+		b := []byte{0x00, 0x00}
+		r, _ := randd.Int(randd.Reader, big.NewInt(26))
+		b[0] = 65 + byte(r.Int64()) //A = 65
+		r, _ = randd.Int(randd.Reader, big.NewInt(26))
+		b[1] = 97 + byte(r.Int64()) //a=97
+		r, _ = randd.Int(randd.Reader, big.NewInt(2))
+		bytes[i] = b[r.Int64()]
+	}
+	return string(bytes)
+}
+
+func (app *application) basicAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		username, password, ok := r.BasicAuth()
+		if ok {
+			usernameHash := sha256.Sum256([]byte(username))
+			passwordHash := sha256.Sum256([]byte(password))
+			expectedUsernameHash := sha256.Sum256([]byte(app.auth.username))
+			expectedPasswordHash := sha256.Sum256([]byte(app.auth.password))
+
+			usernameMatch := subtle.ConstantTimeCompare(usernameHash[:], expectedUsernameHash[:]) == 1
+			passwordMatch := subtle.ConstantTimeCompare(passwordHash[:], expectedPasswordHash[:]) == 1
+
+			if usernameMatch && passwordMatch {
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+
+		w.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	}
 }
 
 // Capture using "github.com/kbinani/screenshot" (modified to reuse image.RGBA)
