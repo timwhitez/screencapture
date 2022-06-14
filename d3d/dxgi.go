@@ -18,7 +18,7 @@ var (
 	iid_IDXGIAdapter1, _ = windows.GUIDFromString("{29038f61-3839-4626-91fd-086879011a05}")
 	// iid_IDXGIOutput, _   = windows.GUIDFromString("{ae02eedb-c735-4690-8d52-5a8dc20213aa}")
 	iid_IDXGIOutput1, _  = windows.GUIDFromString("{00cddea8-939b-4b83-a340-a685226666cc}")
-	iid_IDXGIOutput5, _  = windows.GUIDFromString("{80A07424-AB52-42EB-833C-0C42FD282D98}")
+	//iid_IDXGIOutput5, _  = windows.GUIDFromString("{80A07424-AB52-42EB-833C-0C42FD282D98}")
 	iid_IDXGIFactory1, _ = windows.GUIDFromString("{770aae78-f26f-4dba-a829-253c83d1b387}")
 	// iid_IDXGIResource, _ = windows.GUIDFromString("{035f3ab4-482e-4e50-b41f-8a7f8bd8960b}")
 	iid_IDXGISurface, _ = windows.GUIDFromString("{cafcb56c-6ac3-4889-bf47-9e23bbd260ec}")
@@ -114,20 +114,27 @@ func NewIDXGIOutputDuplication(device *ID3D11Device, deviceCtx *ID3D11DeviceCont
 	}
 	defer dxgiOutput.Release()
 
-	var dxgiOutput5 *IDXGIOutput5
-	hr = dxgiOutput.QueryInterface(iid_IDXGIOutput5, &dxgiOutput5)
+	//var dxgiOutput5 *IDXGIOutput5
+	//hr = dxgiOutput.QueryInterface(iid_IDXGIOutput5, &dxgiOutput5)
+	var dxgiOutput1 *IDXGIOutput1
+	hr = dxgiOutput.QueryInterface(iid_IDXGIOutput1, &dxgiOutput1)
 	if failed(hr) {
 		return nil, fmt.Errorf("failed at dxgiOutput.QueryInterface. %w", HRESULT(hr))
 	}
-	defer dxgiOutput5.Release()
+	//defer dxgiOutput5.Release()
+	defer dxgiOutput1.Release()
 	var dup *IDXGIOutputDuplication
+	/*
 	hr = dxgiOutput5.DuplicateOutput1(dxgiDevice1, 0, []DXGI_FORMAT{
 		DXGI_FORMAT_R8G8B8A8_UNORM,
 		// using the former, we don't have to swizzle ourselves
 		// DXGI_FORMAT_B8G8R8A8_UNORM,
 	}, &dup)
 	needsSwizzle := false
+	*/
+	hr = dxgiOutput1.DuplicateOutput(dxgiDevice1, &dup)
 	if failed(hr) {
+		/*
 		needsSwizzle = true
 		// fancy stuff not supported :/
 		// fmt.Printf("Info: failed to use dxgiOutput5.DuplicateOutput1, falling back to dxgiOutput1.DuplicateOutput. Missing manifest with DPI awareness set to \"PerMonitorV2\"? %v\n", _DXGI_ERROR(hr))
@@ -141,9 +148,12 @@ func NewIDXGIOutputDuplication(device *ID3D11Device, deviceCtx *ID3D11DeviceCont
 		if failed(hr) {
 			return nil, fmt.Errorf("failed at dxgiOutput1.DuplicateOutput. %w", HRESULT(hr))
 		}
+		*/
+		return nil, fmt.Errorf("failed at dxgiOutput1.DuplicateOutput. %v", uint32(hr))
 	}
 
-	return &OutputDuplicator{device: device, deviceCtx: deviceCtx, outputDuplication: dup, needsSwizzle: needsSwizzle}, nil
+	//return &OutputDuplicator{device: device, deviceCtx: deviceCtx, outputDuplication: dup, needsSwizzle: needsSwizzle}, nil
+	return &OutputDuplicator{device: device, deviceCtx: deviceCtx, outputDuplication: dup,needsSwizzle: true}, nil
 }
 
 type IDXGIAdapter1 struct {
