@@ -7,7 +7,7 @@ import (
 
 	"unsafe"
 
-	"github.com/kirides/screencapture/swizzle"
+	"github.com/timwhitez/screencapture/swizzle"
 )
 
 type PointerInfo struct {

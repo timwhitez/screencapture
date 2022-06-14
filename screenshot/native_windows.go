@@ -6,11 +6,11 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/kirides/screencapture/swizzle"
+	"github.com/timwhitez/screencapture/swizzle"
 
 	"github.com/lxn/win"
 
-	thiswin "github.com/kirides/screencapture/win"
+	thiswin "github.com/timwhitez/screencapture/win"
 )
 
 func CaptureImg(img *image.RGBA, x, y, width, height int) error {

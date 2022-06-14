@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/kirides/screencapture/d3d"
+	"github.com/timwhitez/screencapture/d3d"
 
 	"github.com/kbinani/screenshot"
 )

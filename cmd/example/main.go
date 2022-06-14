@@ -16,13 +16,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kirides/screencapture/d3d"
-	forkscreenshot "github.com/kirides/screencapture/screenshot"
-	"github.com/kirides/screencapture/win"
-	"github.com/nfnt/resize"
-
 	"github.com/kbinani/screenshot"
 	"github.com/mattn/go-mjpeg"
+	"github.com/nfnt/resize"
+	"github.com/timwhitez/screencapture/d3d"
+	forkscreenshot "github.com/timwhitez/screencapture/screenshot"
 )
 
 func main() {
@@ -66,7 +64,7 @@ func main() {
 		http.HandleFunc(fmt.Sprintf("/mjpeg%d", i), stream.ServeHTTP)
 	}
 	go func() {
-		http.ListenAndServe("0.0.0.0:8023", nil)
+		http.ListenAndServe("127.0.0.1:8023", nil)
 
 	}()
 	<-ctx.Done()
@@ -128,17 +126,17 @@ func streamDisplayDXGI(ctx context.Context, n int, framerate int, out *mjpeg.Str
 	// Keep this thread, so windows/d3d11/dxgi can use their threadlocal caches, if any
 	runtime.LockOSThread()
 
-/*
-	// Make thread PerMonitorV2 Dpi aware if supported on OS
-	// allows to let windows handle BGRA -> RGBA conversion and possibly more things
-	if win.IsValidDpiAwarenessContext(win.DpiAwarenessContextPerMonitorAwareV2) {
-		_, err := win.SetThreadDpiAwarenessContext(win.DpiAwarenessContextPerMonitorAwareV2)
-		if err != nil {
-			fmt.Printf("Could not set thread DPI awareness to PerMonitorAwareV2. %v\n", err)
-		} else {
-			fmt.Printf("Enabled PerMonitorAwareV2 DPI awareness.\n")
+	/*
+		// Make thread PerMonitorV2 Dpi aware if supported on OS
+		// allows to let windows handle BGRA -> RGBA conversion and possibly more things
+		if win.IsValidDpiAwarenessContext(win.DpiAwarenessContextPerMonitorAwareV2) {
+			_, err := win.SetThreadDpiAwarenessContext(win.DpiAwarenessContextPerMonitorAwareV2)
+			if err != nil {
+				fmt.Printf("Could not set thread DPI awareness to PerMonitorAwareV2. %v\n", err)
+			} else {
+				fmt.Printf("Enabled PerMonitorAwareV2 DPI awareness.\n")
+			}
 		}
-	}
 	*/
 
 	// Setup D3D11 stuff
