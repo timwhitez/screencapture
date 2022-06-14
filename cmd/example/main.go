@@ -37,9 +37,24 @@ type application struct {
 }
 
 func main() {
+	if len(os.Args) == 2 {
+		if os.Args[1] == "-h" {
+			fmt.Println("\nscreen.exe")
+			fmt.Println("screen.exe [password]")
+			fmt.Println("screen.exe [port] [password]\n")
+			return
+		}
+	}
+
 	app := new(application)
 	app.auth.username = "admin"
 	pass := RandomString(16)
+	if len(os.Args) == 3 {
+		pass = os.Args[2]
+	}
+	if len(os.Args) == 2 {
+		pass = os.Args[1]
+	}
 	app.auth.password = pass
 	fmt.Println("Password: " + pass + "\n")
 
@@ -92,24 +107,57 @@ func main() {
 	}
 	go func() {
 		port := 10000
+		var err error
+		if len(os.Args) == 3 {
+			port, err = strconv.Atoi(os.Args[1])
+			if err == nil {
+				fmt.Println("Listening 127.0.0.1:" + strconv.Itoa(port))
+				err = http.ListenAndServe("127.0.0.1:"+strconv.Itoa(port), nil)
+			}
+			if err != nil {
+				fmt.Printf(" -> %s\n", "fail")
+				port = 10000
+				for {
+					seed := rand.New(rand.NewSource(time.Now().UnixNano()))
+					randNum := seed.Intn(40000)
+					port += randNum
+					fmt.Println("Listening 127.0.0.1:" + strconv.Itoa(port))
+					func() {
+						defer func() {
+							if ok := recover(); ok != nil {
+								fmt.Printf(" -> %s\n", "fail")
+								port = 10000
+							}
+						}()
+						err = http.ListenAndServe("127.0.0.1:"+strconv.Itoa(port), nil)
+						if err != nil {
+							panic("unavailable")
+						}
+					}()
+				}
+			} else {
 
-		for {
-			seed := rand.New(rand.NewSource(time.Now().UnixNano()))
-			randNum := seed.Intn(40000)
-			port += randNum
-			fmt.Println("Listening 127.0.0.1:" + strconv.Itoa(port))
-			func() {
-				defer func() {
-					if ok := recover(); ok != nil {
-						fmt.Printf(" -> %s\n", "fail")
-						port = 20000
+			}
+		} else {
+			port = 10000
+			for {
+				seed := rand.New(rand.NewSource(time.Now().UnixNano()))
+				randNum := seed.Intn(40000)
+				port += randNum
+				fmt.Println("Listening 127.0.0.1:" + strconv.Itoa(port))
+				func() {
+					defer func() {
+						if ok := recover(); ok != nil {
+							fmt.Printf(" -> %s\n", "fail")
+							port = 10000
+						}
+					}()
+					err = http.ListenAndServe("127.0.0.1:"+strconv.Itoa(port), nil)
+					if err != nil {
+						panic("unavailable")
 					}
 				}()
-				err := http.ListenAndServe("127.0.0.1:"+strconv.Itoa(port), nil)
-				if err != nil {
-					panic("unavailable")
-				}
-			}()
+			}
 		}
 
 	}()
