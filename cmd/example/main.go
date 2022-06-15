@@ -7,19 +7,21 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
+	"flag"
 	"fmt"
 	"image"
+	"image/jpeg"
 	"log"
 	"math/big"
 	"math/rand"
 	"net/http"
+	"os/signal"
 	"runtime"
+	"syscall"
 
 	// _ "net/http/pprof"
 	"os"
-	"os/signal"
 	"strconv"
-	"syscall"
 	"time"
 
 	"github.com/kbinani/screenshot"
@@ -36,25 +38,28 @@ type application struct {
 	}
 }
 
+var (
+	quality int
+	passwd  string
+	port    string
+)
+
+func init() {
+	flag.IntVar(&quality, "q", 1, "[optional]screen quality 0:1080p | 1:720p(default) | 2:480p")
+	flag.StringVar(&passwd, "s", "", "[optional]secret password (default for random)")
+	flag.StringVar(&port, "p", "", "[optional]port (default for random)")
+}
+
 func main() {
-	if len(os.Args) == 2 {
-		if os.Args[1] == "-h" {
-			fmt.Println("\nscreen.exe")
-			fmt.Println("screen.exe [password]")
-			fmt.Println("screen.exe [port] [password]\n")
-			return
-		}
-	}
+	flag.Parse()
 
 	app := new(application)
 	app.auth.username = "admin"
 	pass := RandomString(16)
-	if len(os.Args) == 3 {
-		pass = os.Args[2]
+	if passwd != "" {
+		pass = passwd
 	}
-	if len(os.Args) == 2 {
-		pass = os.Args[1]
-	}
+
 	app.auth.password = pass
 	fmt.Println("Password: " + pass + "\n")
 
@@ -106,30 +111,30 @@ func main() {
 		http.HandleFunc(fmt.Sprintf("/mjpeg%d", i), app.basicAuth(stream.ServeHTTP))
 	}
 	go func() {
-		port := 10000
+		port0 := 10000
 		var err error
-		if len(os.Args) == 3 {
-			port, err = strconv.Atoi(os.Args[1])
+		if port != "" {
+			port0, err = strconv.Atoi(port)
 			if err == nil {
-				fmt.Println("Listening 127.0.0.1:" + strconv.Itoa(port))
-				err = http.ListenAndServe("127.0.0.1:"+strconv.Itoa(port), nil)
+				fmt.Println("Listening 127.0.0.1:" + strconv.Itoa(port0))
+				err = http.ListenAndServe("127.0.0.1:"+strconv.Itoa(port0), nil)
 			}
 			if err != nil {
 				fmt.Printf(" -> %s\n", "fail")
-				port = 10000
+				port0 = 10000
 				for {
 					seed := rand.New(rand.NewSource(time.Now().UnixNano()))
 					randNum := seed.Intn(40000)
-					port += randNum
-					fmt.Println("Listening 127.0.0.1:" + strconv.Itoa(port))
+					port0 += randNum
+					fmt.Println("Listening 127.0.0.1:" + strconv.Itoa(port0))
 					func() {
 						defer func() {
 							if ok := recover(); ok != nil {
 								fmt.Printf(" -> %s\n", "fail")
-								port = 10000
+								port0 = 10000
 							}
 						}()
-						err = http.ListenAndServe("127.0.0.1:"+strconv.Itoa(port), nil)
+						err = http.ListenAndServe("127.0.0.1:"+strconv.Itoa(port0), nil)
 						if err != nil {
 							panic("unavailable")
 						}
@@ -139,20 +144,20 @@ func main() {
 
 			}
 		} else {
-			port = 10000
+			port0 = 10000
 			for {
 				seed := rand.New(rand.NewSource(time.Now().UnixNano()))
 				randNum := seed.Intn(40000)
-				port += randNum
-				fmt.Println("Listening 127.0.0.1:" + strconv.Itoa(port))
+				port0 += randNum
+				fmt.Println("Listening 127.0.0.1:" + strconv.Itoa(port0))
 				func() {
 					defer func() {
 						if ok := recover(); ok != nil {
 							fmt.Printf(" -> %s\n", "fail")
-							port = 10000
+							port0 = 10000
 						}
 					}()
-					err = http.ListenAndServe("127.0.0.1:"+strconv.Itoa(port), nil)
+					err = http.ListenAndServe("127.0.0.1:"+strconv.Itoa(port0), nil)
 					if err != nil {
 						panic("unavailable")
 					}
@@ -289,7 +294,20 @@ func streamDisplayDXGI(ctx context.Context, n int, framerate int, out *mjpeg.Str
 	}()
 
 	buf := &bufferFlusher{Buffer: bytes.Buffer{}}
-	opts := jpegQuality(50)
+	var opts *jpeg.Options
+	//opts := jpegQuality(50)
+
+	switch quality {
+	case 0:
+		opts = jpegQuality(50)
+	case 1:
+		opts = jpegQuality(30)
+	case 2:
+		opts = jpegQuality(20)
+	default:
+		opts = jpegQuality(30)
+	}
+
 	limiter := NewFrameLimiter(framerate)
 	// Create image that can contain the wanted output (desktop)
 	finalBounds := screenshot.GetDisplayBounds(n)
@@ -297,7 +315,16 @@ func streamDisplayDXGI(ctx context.Context, n int, framerate int, out *mjpeg.Str
 	lastBounds := finalBounds
 
 	// TODO: This is just there, so that people can see how resizing might look
-	_ = resize.Resize(1920, 1080, imgBuf, resize.Bicubic)
+	switch quality {
+	case 0:
+		_ = resize.Resize(1920, 1080, imgBuf, resize.Bicubic)
+	case 1:
+		_ = resize.Resize(1280, 720, imgBuf, resize.Bicubic)
+	case 2:
+		_ = resize.Resize(720, 480, imgBuf, resize.Bicubic)
+	default:
+		_ = resize.Resize(1280, 720, imgBuf, resize.Bicubic)
+	}
 
 	for {
 		select {
